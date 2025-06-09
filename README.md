@@ -93,6 +93,7 @@ Install through Arduino IDE Library Manager:
    - Use keyboard shortcut: `[Ctrl] + [Shift] + [P]`, then "Upload LittleFS to Pico/ESP8266/ESP32"
 
 5. **Prepare SD card**
+   - Use microSD card 32GB or smaller (DFPlayer Mini limitation)
    - Format microSD card as FAT32
    - ⚠️ **Important**: Copy MP3 files one by one in numerical order (001.mp3 first, then 002.mp3, etc.)
    - Insert into DFPlayer Mini
