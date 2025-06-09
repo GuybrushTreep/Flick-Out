@@ -125,6 +125,14 @@ sdcard/
 
 ## 🔧 Configuration
 
+### Score Calibration
+```cpp
+float scoreCalibration = 1.0;    // Global calibration factor
+                                // 1.0 = default scale
+                                // 0.9 = easier scoring  
+                                // 1.1 = harder scoring
+```
+
 ### Volume Levels
 ```cpp
 const int VOLUME_LEVELS[] = {0, 1, 5, 10, 15, 20, 25, 30};
