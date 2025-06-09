@@ -4,6 +4,8 @@
 [![ESP32](https://img.shields.io/badge/ESP32-S3-green.svg)](https://www.espressif.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+[![Flick-Out Game](images/Render_01.jpg)](images/Render_01.jpg)
+
 > A retro-style arcade punching game for the LilyGO T-Display S3, featuring animated GIFs, sound effects, and force-sensitive gameplay.
 
 ## 🎮 Features
