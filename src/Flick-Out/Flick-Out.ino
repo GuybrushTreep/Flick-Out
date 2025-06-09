@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Flick - Out!! for LilyGO T-Display S3
+ * Flick - Out!! for LilyGO T-Display S3 with NeoPixel Effects
  * 
  * Game Flow:
  * 1. Boot: Play sync music + gif, then move to idle
@@ -15,6 +15,7 @@
  * - FSR (Force Sensitive Resistor) on GPIO 12
  * - Boot button (GPIO 0) for game start
  * - External button (GPIO 17) for game start - with internal pullup
+ * - NeoPixel stick on GPIO 11 (8 LEDs)
  * - LiPo battery connected to JST connector with built-in charging
  * 
  * Files needed in LittleFS (flash memory):
@@ -41,6 +42,7 @@
 #include <Preferences.h>
 #include <FS.h>
 #include <sys/types.h>
+#include <Adafruit_NeoPixel.h>
 
 // Hardware configuration for T-Display S3
 #define GFX_EXTRA_PRE_INIT() \
@@ -55,6 +57,17 @@
 #define BATTERY_PIN 4
 #define RXD2 21
 #define TXD2 16
+#define NEOPIXEL_PIN 11
+#define NEOPIXEL_COUNT 8
+
+// NeoPixel setup
+Adafruit_NeoPixel pixels(NEOPIXEL_COUNT, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
+
+// NeoPixel animation variables
+unsigned long lastNeoPixelUpdate = 0;
+int neoPixelAnimationStep = 0;
+bool neoPixelDirection = true;
+float neoPixelBrightness = 1.0;
 
 // Battery monitoring constants
 #define BATTERY_MAX_VOLTAGE 4.2f
@@ -254,6 +267,243 @@ unsigned long stateTimer = 0;
 int currentScore = 0;
 bool buttonPressed = false;
 bool externalButtonPressed = false;
+
+/*******************************************************************************
+ * NeoPixel Effect Functions
+ ******************************************************************************/
+
+void clearNeoPixels() {
+  pixels.clear();
+  pixels.show();
+}
+
+void setAllNeoPixels(uint32_t color, float brightness = 1.0) {
+  // Further limit brightness to protect ESP32
+  brightness = brightness * 0.3; // Max 30% of already low base brightness
+  
+  for(int i = 0; i < NEOPIXEL_COUNT; i++) {
+    uint8_t r = (uint8_t)((color >> 16) & 0xFF) * brightness;
+    uint8_t g = (uint8_t)((color >> 8) & 0xFF) * brightness;
+    uint8_t b = (uint8_t)(color & 0xFF) * brightness;
+    pixels.setPixelColor(i, pixels.Color(r, g, b));
+  }
+  pixels.show();
+}
+
+void neoPixelBootEffect() {
+  // Rainbow sweep during boot with reduced brightness
+  static unsigned long bootStartTime = 0;
+  if (bootStartTime == 0) {
+    bootStartTime = millis();
+  }
+  
+  unsigned long elapsed = millis() - bootStartTime;
+  int rainbowPos = (elapsed / 80) % 256; // Slower animation
+  
+  for(int i = 0; i < NEOPIXEL_COUNT; i++) {
+    int pixelHue = ((rainbowPos + (i * 256 / NEOPIXEL_COUNT)) % 256);
+    uint32_t color = pixels.gamma32(pixels.ColorHSV(pixelHue * 256));
+    
+    // Reduce brightness significantly for boot
+    uint8_t r = ((color >> 16) & 0xFF) * 0.3;
+    uint8_t g = ((color >> 8) & 0xFF) * 0.3;
+    uint8_t b = (color & 0xFF) * 0.3;
+    
+    pixels.setPixelColor(i, pixels.Color(r, g, b));
+  }
+  pixels.show();
+}
+
+void neoPixelIdleEffect() {
+  // Soft breathing blue effect with very low brightness
+  if (millis() - lastNeoPixelUpdate > 50) {
+    float breathe = (sin(millis() * 0.002) + 1.0) * 0.5; // 0.0 to 1.0
+    breathe = breathe * 0.15 + 0.05; // Scale to 0.05 to 0.2 brightness (very low)
+    
+    setAllNeoPixels(pixels.Color(0, 50, 150), breathe); // Dimmer blue color
+    lastNeoPixelUpdate = millis();
+  }
+}
+
+void neoPixelBoxingEffect() {
+  // Pulsing red effect with low intensity
+  if (millis() - lastNeoPixelUpdate > 150) {
+    float pulse = (sin(millis() * 0.01) + 1.0) * 0.5;
+    pulse = pulse * 0.4 + 0.1; // Scale to 0.1 to 0.5 brightness (reduced)
+    
+    setAllNeoPixels(pixels.Color(150, 0, 0), pulse); // Dimmer red
+    lastNeoPixelUpdate = millis();
+  }
+}
+
+void neoPixelAttractEffect() {
+  // Chasing lights effect with reduced brightness
+  if (millis() - lastNeoPixelUpdate > 200) {
+    pixels.clear();
+    
+    int pos = neoPixelAnimationStep % NEOPIXEL_COUNT;
+    pixels.setPixelColor(pos, pixels.Color(100, 100, 0)); // Dimmer yellow
+    pixels.setPixelColor((pos + 1) % NEOPIXEL_COUNT, pixels.Color(50, 50, 0)); // Even dimmer yellow
+    
+    pixels.show();
+    neoPixelAnimationStep++;
+    lastNeoPixelUpdate = millis();
+  }
+}
+
+void neoPixelResultEffect(int score) {
+  // Color based on score performance with reduced brightness
+  uint32_t color;
+  if (score >= 800) {
+    color = pixels.Color(150, 0, 150); // Dimmer magenta for excellent
+  } else if (score >= 600) {
+    color = pixels.Color(0, 150, 0); // Dimmer green for good
+  } else if (score >= 300) {
+    color = pixels.Color(150, 150, 0); // Dimmer yellow for okay
+  } else {
+    color = pixels.Color(150, 50, 0); // Dimmer orange for weak
+  }
+  
+  // Flash effect with reduced brightness
+  if (millis() - lastNeoPixelUpdate > 500) {
+    static bool flashOn = false;
+    if (flashOn) {
+      setAllNeoPixels(color, 0.6); // Reduced flash intensity
+    } else {
+      clearNeoPixels();
+    }
+    flashOn = !flashOn;
+    lastNeoPixelUpdate = millis();
+  }
+}
+
+void neoPixelHighscoreEffect() {
+  // Rainbow celebration effect with reduced brightness
+  if (millis() - lastNeoPixelUpdate > 100) {
+    for(int i = 0; i < NEOPIXEL_COUNT; i++) {
+      int pixelHue = ((millis() / 20 + (i * 256 / NEOPIXEL_COUNT)) % 256);
+      uint32_t color = pixels.gamma32(pixels.ColorHSV(pixelHue * 256));
+      
+      // Reduce RGB values to limit current draw
+      uint8_t r = (color >> 16) & 0xFF;
+      uint8_t g = (color >> 8) & 0xFF;
+      uint8_t b = color & 0xFF;
+      
+      r = r * 0.4; // Reduce to 40% brightness
+      g = g * 0.4;
+      b = b * 0.4;
+      
+      pixels.setPixelColor(i, pixels.Color(r, g, b));
+    }
+    pixels.show();
+    lastNeoPixelUpdate = millis();
+  }
+}
+
+void neoPixelVolumeEffect(int volumeLevel) {
+  // Volume bar visualization with reduced brightness
+  pixels.clear();
+  
+  int maxVolume = VOLUME_LEVELS[NUM_VOLUME_LEVELS - 1];
+  int ledCount = map(volumeLevel, 0, maxVolume, 0, NEOPIXEL_COUNT);
+  
+  for(int i = 0; i < ledCount; i++) {
+    uint32_t color;
+    if (i < NEOPIXEL_COUNT / 3) {
+      color = pixels.Color(0, 100, 0); // Dimmer green for low volume
+    } else if (i < (NEOPIXEL_COUNT * 2) / 3) {
+      color = pixels.Color(100, 100, 0); // Dimmer yellow for medium volume
+    } else {
+      color = pixels.Color(100, 0, 0); // Dimmer red for high volume
+    }
+    pixels.setPixelColor(i, color);
+  }
+  
+  if (volumeLevel == 0) {
+    // Blink red for mute with very low brightness
+    if ((millis() / 500) % 2) {
+      setAllNeoPixels(pixels.Color(80, 0, 0), 0.3); // Very dim red
+    }
+  }
+  
+  pixels.show();
+}
+
+void neoPixelLowBatteryEffect() {
+  // Urgent red flashing with reduced brightness
+  if (millis() - lastNeoPixelUpdate > 300) {
+    static bool flashOn = false;
+    if (flashOn) {
+      setAllNeoPixels(pixels.Color(120, 0, 0), 0.5); // Dimmer red flash
+    } else {
+      clearNeoPixels();
+    }
+    flashOn = !flashOn;
+    lastNeoPixelUpdate = millis();
+  }
+}
+
+void neoPixelPunchImpactEffect() {
+  // Quick flash effect with reduced brightness to protect ESP32
+  setAllNeoPixels(pixels.Color(100, 100, 100), 0.8); // Dimmer white flash
+  delay(50);
+  clearNeoPixels();
+  delay(30);
+  setAllNeoPixels(pixels.Color(100, 100, 100), 0.4); // Even dimmer second flash
+  delay(50);
+  clearNeoPixels();
+}
+
+void updateNeoPixelEffects() {
+  switch (currentState) {
+    case STATE_BOOT:
+      neoPixelBootEffect();
+      break;
+      
+    case STATE_IDLE:
+      if (showResetMessage) {
+        // Special effect for reset message
+        if ((millis() / 200) % 2) {
+          setAllNeoPixels(pixels.Color(255, 0, 0), 0.5);
+        } else {
+          clearNeoPixels();
+        }
+      } else {
+        neoPixelIdleEffect();
+      }
+      break;
+      
+    case STATE_ATTRACT_HIGHSCORE:
+    case STATE_ATTRACT_CREDITS:
+      neoPixelAttractEffect();
+      break;
+      
+    case STATE_BOXING:
+      neoPixelBoxingEffect();
+      break;
+      
+    case STATE_RESULT:
+      neoPixelResultEffect(currentScore);
+      break;
+      
+    case STATE_NEW_HIGHSCORE:
+      neoPixelHighscoreEffect();
+      break;
+      
+    case STATE_VOLUME_MENU:
+      neoPixelVolumeEffect(currentVolume);
+      break;
+      
+    case STATE_LOW_BATTERY_WARNING:
+    case STATE_CRITICAL_BATTERY_SHUTDOWN:
+      neoPixelLowBatteryEffect();
+      break;
+      
+    default:
+      clearNeoPixels();
+      break;
+  }
+}
 
 /*******************************************************************************
  * GIF Class Implementation
@@ -670,8 +920,14 @@ void loadVolume() {
   currentVolumeIndex = preferences.getInt("volume-idx", 3);  // Default to index 3 (volume 10)
   currentVolume = VOLUME_LEVELS[currentVolumeIndex];
   preferences.end();
-  myDFPlayer.volume(currentVolume);
-  Serial.printf("Loaded volume: %d (index %d)\n", currentVolume, currentVolumeIndex);
+  
+  // Only set DFPlayer volume if not muted
+  if (currentVolume > 0) {
+    myDFPlayer.volume(currentVolume);
+    Serial.printf("Loaded volume: %d (index %d)\n", currentVolume, currentVolumeIndex);
+  } else {
+    Serial.printf("Loaded volume: MUTED (index %d) - no DFPlayer command sent\n", currentVolumeIndex);
+  }
 }
 
 void saveVolume() {
@@ -684,9 +940,16 @@ void saveVolume() {
 void cycleVolume() {
   currentVolumeIndex = (currentVolumeIndex + 1) % NUM_VOLUME_LEVELS;
   currentVolume = VOLUME_LEVELS[currentVolumeIndex];
-  myDFPlayer.volume(currentVolume);
+  
+  // Only send volume command to DFPlayer if not muted
+  if (currentVolume > 0) {
+    myDFPlayer.volume(currentVolume);
+    Serial.printf("Volume changed to: %d (index %d)\n", currentVolume, currentVolumeIndex);
+  } else {
+    Serial.printf("Volume muted (index %d) - no DFPlayer command sent\n", currentVolumeIndex);
+  }
+  
   saveVolume();
-  Serial.printf("Volume changed to: %d (index %d)\n", currentVolume, currentVolumeIndex);
 }
 
 void drawVolumeMenu(bool forceRedraw = false) {
@@ -1016,6 +1279,7 @@ void drawScrollingCredits() {
     "Hardware:",
     "LilyGO T-Display S3",
     "DFPlayer Mini",
+    "NeoPixel Effects",
     "",
     "Thanks for playing!",
     "",
@@ -1050,6 +1314,8 @@ void drawScrollingCredits() {
         textColor = RGB565_GREEN;
       } else if (line.indexOf("Battle Music") >= 0 || line.indexOf("Dragon-Studio") >= 0) {
         textColor = RGB565_MAGENTA;
+      } else if (line.indexOf("NeoPixel") >= 0) {
+        textColor = RGB565_CYAN;
       } else if (line.indexOf("Thanks") >= 0 || line.indexOf("Press button") >= 0 || line.indexOf("to start") >= 0) {
         textColor = RGB565_RED;
       }
@@ -1208,6 +1474,12 @@ void resetLoopingGif() {
 }
 
 void playSound(int trackNumber, bool random = false, bool looping = false) {
+  // Skip DFPlayer commands if volume is muted (0)
+  if (currentVolume == 0) {
+    Serial.printf("Skipping sound track %d - volume is muted\n", trackNumber);
+    return;
+  }
+  
   if (looping) {
     idleMusicLooping = true;
     myDFPlayer.play(trackNumber);
@@ -1232,6 +1504,12 @@ void playSound(int trackNumber, bool random = false, bool looping = false) {
 }
 
 void checkIdleMusic() {
+  // Skip music check if volume is muted
+  if (currentVolume == 0) {
+    idleMusicLooping = false; // Stop tracking idle music when muted
+    return;
+  }
+  
   if (idleMusicLooping && currentState == STATE_IDLE) {
     unsigned long currentTime = millis();
     if (currentTime - lastMusicCheck >= MUSIC_CHECK_INTERVAL) {
@@ -1383,6 +1661,13 @@ void setup() {
   pinMode(15, OUTPUT);
   digitalWrite(15, HIGH);
 
+  // Initialize NeoPixels with low brightness for ESP32 current safety
+  pixels.begin();
+  pixels.clear();
+  pixels.show();
+  pixels.setBrightness(30); // Low brightness to protect ESP32 (30/255 = ~12%)
+  Serial.println("NeoPixel initialized with low brightness for current safety");
+
   batteryCheckTimer = millis();
   updateBatteryStatus();
 
@@ -1428,7 +1713,7 @@ void setup() {
   loadHighScore();
   loadVolume();
 
-  Serial.println("Flick - Out!! Started!");
+  Serial.println("Flick - Out!! Started with NeoPixel Effects!");
   Serial.printf("Initial battery: %.2fV (%d%%)\n", batteryVoltage, batteryPercentage);
 
   myDFPlayer.play(1);
@@ -1441,6 +1726,7 @@ void loop() {
 
   updateBatteryStatus();
   checkIdleMusic();
+  updateNeoPixelEffects(); // Update NeoPixel effects every loop
 
   if (lowBatteryWarning && currentState != STATE_LOW_BATTERY_WARNING && currentState != STATE_CRITICAL_BATTERY_SHUTDOWN) {
     static GameState previousState = currentState;
@@ -1531,6 +1817,7 @@ void loop() {
 
         delay(3000);
 
+        clearNeoPixels();
         digitalWrite(GFX_BL, LOW);
         Serial.println("Entering deep sleep due to critical battery");
         esp_deep_sleep_start();
@@ -1865,6 +2152,9 @@ void loop() {
               Serial.printf("PUNCH START detected! Initial FSR: %d\n", currentFSRReading);
               punchInProgress = true;
               punchDetectedTime = millis();
+              
+              // Trigger punch impact effect
+              neoPixelPunchImpactEffect();
             }
           }
 
