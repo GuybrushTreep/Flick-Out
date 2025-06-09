@@ -31,7 +31,7 @@
 | **Force Sensitive Resistor (FSR)** | Punch detection sensor |
 | **NeoPixel Stick** | 8 LEDs for visual effects |
 | **MicroSD Card** | Storage for audio files (32GB max) |
-| **LiPo Battery** | Power source with JST PH 1mm connector (included with T-Display S3) |
+| **LiPo Battery** | Power source with JST PH 1mm connector (JST plug included with T-Display S3) |
 
 ### 🔌 Pin Configuration
 
