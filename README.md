@@ -76,7 +76,7 @@ Install through Arduino IDE Library Manager:
 
 3. **Upload the code**
    - Open `flick-out.ino` in Arduino IDE
-   - Select board: `ESP32S3 Dev Module`
+   - Select board: `LilyGo T3-S3`
    - Upload the sketch
 
 4. **Upload GIF files to LittleFS**
