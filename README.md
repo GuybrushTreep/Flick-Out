@@ -11,11 +11,12 @@
 - 🎬 **Animated GIF Support** - Boot animations, idle loops, and game sequences
 - 👊 **Force-Sensitive Gameplay** - Punch strength detection using FSR sensor
 - 🔊 **Sound System** - MP3 audio with DFPlayer Mini module
+- 💡 **NeoPixel Effects** - Dynamic LED lighting synchronized with game states
 - 🔋 **Battery Monitoring** - Real-time voltage tracking with low battery warnings
 - 🏆 **Highscore System** - Persistent storage with reset functionality
 - 🎵 **Volume Control** - Adjustable audio levels with visual menu
 - ✨ **Attract Modes** - Cycling highscore display and scrolling credits
-- ⚡ **Power Management** - Critical battery shutdown protection
+
 
 ## 📋 Hardware Requirements
 
@@ -26,6 +27,7 @@
 | **LilyGO T-Display S3** | ESP32-S3 development board with integrated display |
 | **DFPlayer Mini** | MP3 module for audio playback |
 | **Force Sensitive Resistor (FSR)** | Punch detection sensor |
+| **NeoPixel Stick** | 8 LEDs for visual effects |
 | **MicroSD Card** | Storage for audio files |
 | **LiPo Battery** | Power source with JST connector |
 
@@ -38,6 +40,7 @@ External Button:   GPIO 17 (with internal pullup)
 Battery Monitor:   GPIO 4
 DFPlayer RX:       GPIO 21
 DFPlayer TX:       GPIO 16
+NeoPixel Stick:    GPIO 11 (8 LEDs)
 Display Backlight: GPIO 38
 Display Power:     GPIO 15
 ```
@@ -46,28 +49,25 @@ Display Power:     GPIO 15
 
 ### Prerequisites
 
-- Arduino IDE 1.8.x or 2.x
+- Arduino IDE 2.x (required)
 - ESP32 Board Package
+- [T-Display S3 Environment Setup](https://github.com/Xinyuan-LilyGO/T-Display-S3) - Follow the installation guide
 - Required libraries (see below)
 
 ### Required Libraries
 
 Install through Arduino IDE Library Manager:
 
-```
-Arduino_GFX_Library     # Display graphics
-DFRobotDFPlayerMini    # Audio control
-Preferences            # EEPROM storage (built-in)
-LittleFS              # Flash file system (built-in)
-```
+- **[Arduino_GFX_Library](https://github.com/moononournation/Arduino_GFX)** - Display graphics
+- **[DFRobotDFPlayerMini](https://github.com/DFRobot/DFRobotDFPlayerMini)** - Audio control  
+- **[Adafruit_NeoPixel](https://github.com/adafruit/Adafruit_NeoPixel)** - NeoPixel LED control
+- **[Preferences](https://github.com/vshymanskyy/Preferences)** - EEPROM storage (built-in)
 
 ### Steps
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/flick-out.git
-   cd flick-out
-   ```
+1. **Setup T-Display S3 environment**
+   - Follow the [T-Display S3 installation guide](https://github.com/Xinyuan-LilyGO/T-Display-S3)
+   - Ensure your T-Display S3 is properly configured and working with Arduino IDE
 
 2. **Install libraries**
    - Open Arduino IDE
@@ -80,13 +80,13 @@ LittleFS              # Flash file system (built-in)
    - Upload the sketch
 
 4. **Upload GIF files to LittleFS**
-   - Install ESP32 Sketch Data Upload tool
+   - Install [LittleFS Upload Tool](https://github.com/earlephilhower/arduino-littlefs-upload)
    - Place GIF files in `data/` folder
-   - Use `Tools > ESP32 Sketch Data Upload`
+   - Use keyboard shortcut: `[Ctrl] + [Shift] + [P]`, then "Upload LittleFS to Pico/ESP8266/ESP32"
 
 5. **Prepare SD card**
    - Format microSD card as FAT32
-   - Copy MP3 files to root directory
+   - ⚠️ **Important**: Copy MP3 files one by one in numerical order (001.mp3 first, then 002.mp3, etc.)
    - Insert into DFPlayer Mini
 
 ## 📁 File Structure
@@ -113,29 +113,12 @@ sdcard/
 └── 009.mp3         # Score animation sound
 ```
 
-## 🎯 Game Flow
-
-```mermaid
-graph TD
-    A[Boot] --> B[Idle]
-    B --> C[Boxing]
-    C --> D[Results]
-    D --> E{New Highscore?}
-    E -->|Yes| F[Highscore Celebration]
-    E -->|No| G[Continue Screen]
-    F --> G
-    G --> H{Button Pressed?}
-    H -->|Yes| C
-    H -->|No| I[Attract Mode]
-    I --> B
-```
-
 ## 🎮 Controls
 
 | Action | Control |
 |--------|---------|
-| **Start Game** | Single click any button |
-| **Volume Menu** | Double-click any button |
+| **Start Game** | Single click button |
+| **Volume Menu** | Double-click button |
 | **Reset Highscore** | Long press (3s) in idle mode |
 | **Exit Volume Menu** | Long press (1.5s) in volume menu |
 | **Cycle Volume** | Single click in volume menu |
@@ -161,6 +144,21 @@ const unsigned long ATTRACT_DISPLAY_DURATION = 15000;  // Attract mode duration
 #define BATTERY_CRITICAL_VOLTAGE 3.1f   // Critical shutdown
 ```
 
+## 💡 NeoPixel Effects
+
+The game features dynamic LED lighting that responds to different game states:
+
+- **Boot**: Rainbow sweep animation
+- **Idle**: Soft breathing blue effect
+- **Boxing**: Pulsing red during punch detection
+- **Results**: Color-coded feedback based on score performance
+- **Highscore**: Rainbow celebration effect
+- **Volume Menu**: Visual volume level indicator
+- **Battery Warning**: Urgent red flashing for low battery
+- **Punch Impact**: Quick white flash effect on successful punch
+
+> ⚠️ **Note**: NeoPixel brightness is automatically limited to protect the ESP32 from excessive current draw.
+
 ## 🔋 Battery Management
 
 - **Real-time monitoring**: Displays battery percentage indicator
@@ -170,32 +168,26 @@ const unsigned long ATTRACT_DISPLAY_DURATION = 15000;  // Attract mode duration
 
 ## 🐛 Troubleshooting
 
-<details>
-<summary><strong>🔇 No audio output</strong></summary>
+### 🔇 No audio output
 
 - Check SD card is inserted in DFPlayer Mini
 - Verify MP3 files are numbered correctly (001.mp3, 002.mp3, etc.)
 - Check DFPlayer wiring (RX to GPIO 21, TX to GPIO 16)
 - Ensure volume is not set to 0
-</details>
 
-<details>
-<summary><strong>📺 Display issues</strong></summary>
+### 📺 Display issues
 
 - Ensure display power pin (GPIO 15) is high
 - Check SPI connections to display
 - Verify GIF files are uploaded to LittleFS
 - Check backlight pin (GPIO 38)
-</details>
 
-<details>
-<summary><strong>👊 FSR not responding</strong></summary>
+### 👊 FSR not responding
 
 - Check FSR connection to GPIO 12
 - Ensure FSR has proper pull-up resistor
 - Monitor serial output for FSR readings
 - Test with different FSR values
-</details>
 
 ## 📊 Technical Specifications
 
@@ -208,14 +200,6 @@ const unsigned long ATTRACT_DISPLAY_DURATION = 15000;  // Attract mode duration
 | **Storage** | LittleFS (Flash) + SD Card |
 | **Power** | 3.7V LiPo battery |
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -224,22 +208,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Hardware**: [LilyGO T-Display S3](https://github.com/Xinyuan-LilyGO/T-Display-S3)
 - **Music**: Battle Music by Dragon-Studio
+- **NeoPixel Effects**: Enhanced visual feedback system
 - **Development**: Guillaume Loquin (Guybrush)
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-
-- 🐛 [Report bugs](https://github.com/yourusername/flick-out/issues)
-- 💡 [Request features](https://github.com/yourusername/flick-out/issues)
-- 💬 [Discussions](https://github.com/yourusername/flick-out/discussions)
 
 ---
 
-<div align="center">
-
 **Punch your way to the top score! 🥊**
 
-Made with ❤️ by [Guillaume Loquin](https://github.com/yourusername)
-
-</div>
+*Made with ❤️ by Guillaume Loquin*
