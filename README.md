@@ -208,7 +208,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Hardware**: [LilyGO T-Display S3](https://github.com/Xinyuan-LilyGO/T-Display-S3)
 - **Music**: Battle Music by Dragon-Studio
-- **NeoPixel Effects**: Enhanced visual feedback system
 - **Development**: Guillaume Loquin (Guybrush)
 
 ---
