@@ -47,6 +47,12 @@ Display Backlight: GPIO 38
 Display Power:     GPIO 15
 ```
 
+## ⚡ Circuit Assembly
+
+[![Circuit Wiring](images/Circuit.jpg)](images/Circuit.jpg)
+
+Follow the pin configuration above to connect all components. The circuit shows the complete wiring setup for the T-Display S3, DFPlayer Mini, FSR sensor, and NeoPixel stick.
+
 ## 🛠️ Installation
 
 ### Prerequisites
