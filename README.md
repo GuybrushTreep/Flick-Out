@@ -30,7 +30,7 @@
 | **DFPlayer Mini** | MP3 module for audio playback |
 | **Force Sensitive Resistor (FSR)** | Punch detection sensor |
 | **NeoPixel Stick** | 8 LEDs for visual effects |
-| **MicroSD Card** | Storage for audio files |
+| **MicroSD Card** | Storage for audio files (32GB max) |
 | **LiPo Battery** | Power source with JST connector |
 
 ### 🔌 Pin Configuration
