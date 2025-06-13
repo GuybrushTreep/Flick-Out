@@ -33,6 +33,7 @@
  * - 005.mp3 (strong punch sound)
  * - 008.mp3 (new highscore victory sound)
  * - 009.mp3 (complete score animation sound - 4 seconds with rhythmic + staccato beeps)
+ * - 010.mp3 (countdown music - loops during "press button to continue" phase)
  ******************************************************************************/
 
 #include <Arduino.h>
@@ -195,7 +196,7 @@ const unsigned long IDLE_ATTRACT_DELAY = 10000;
 const unsigned long ATTRACT_DISPLAY_DURATION = 15000;
 const unsigned long BATTERY_CHECK_INTERVAL = 5000;
 const unsigned long LOW_BATTERY_WARNING_DURATION = 5000;
-
+const float GLOBAL_BRIGHTNESS = 0.3; // 30% brightness
 // Credits scrolling variables
 unsigned long creditsStartTime = 0;
 int creditsScrollY = 0;
@@ -231,6 +232,10 @@ const int VOLUME_LEVELS[] = {0, 1, 5, 10, 15, 20, 25, 30};
 const int NUM_VOLUME_LEVELS = 8;
 int currentVolumeIndex = 3;  // Start at volume 10 (index 3)
 
+// Score calibration variable - adjust based on hardware differences
+// 1.0 = default scale, 0.9 = easier scoring, 1.1 = harder scoring
+float scoreCalibration = 1.0;
+
 // Double-click detection variables
 unsigned long lastButtonReleaseTime = 0;
 unsigned long lastExternalButtonReleaseTime = 0;
@@ -245,6 +250,7 @@ bool justExitedVolumeMenu = false;
 
 // Audio state management
 bool idleMusicLooping = false;
+bool countdownMusicLooping = false;
 unsigned long lastMusicCheck = 0;
 const unsigned long MUSIC_CHECK_INTERVAL = 1000;
 
@@ -277,10 +283,7 @@ void clearNeoPixels() {
   pixels.show();
 }
 
-void setAllNeoPixels(uint32_t color, float brightness = 1.0) {
-  // Further limit brightness to protect ESP32
-  brightness = brightness * 0.3; // Max 30% of already low base brightness
-  
+void setAllNeoPixels(uint32_t color, float brightness = GLOBAL_BRIGHTNESS) {
   for(int i = 0; i < NEOPIXEL_COUNT; i++) {
     uint8_t r = (uint8_t)((color >> 16) & 0xFF) * brightness;
     uint8_t g = (uint8_t)((color >> 8) & 0xFF) * brightness;
@@ -291,59 +294,91 @@ void setAllNeoPixels(uint32_t color, float brightness = 1.0) {
 }
 
 void neoPixelBootEffect() {
-  // Rainbow sweep during boot with reduced brightness
-  static unsigned long bootStartTime = 0;
-  if (bootStartTime == 0) {
-    bootStartTime = millis();
-  }
+  // Simple rainbow wheel that rotates
+  static int wheelPos = 0;
   
-  unsigned long elapsed = millis() - bootStartTime;
-  int rainbowPos = (elapsed / 80) % 256; // Slower animation
-  
-  for(int i = 0; i < NEOPIXEL_COUNT; i++) {
-    int pixelHue = ((rainbowPos + (i * 256 / NEOPIXEL_COUNT)) % 256);
-    uint32_t color = pixels.gamma32(pixels.ColorHSV(pixelHue * 256));
+  if (millis() - lastNeoPixelUpdate > 80) {
+    wheelPos = (wheelPos + 4) % 256; // Increment faster to see movement
     
-    // Reduce brightness significantly for boot
-    uint8_t r = ((color >> 16) & 0xFF) * 0.3;
-    uint8_t g = ((color >> 8) & 0xFF) * 0.3;
-    uint8_t b = (color & 0xFF) * 0.3;
+    for(int i = 0; i < NEOPIXEL_COUNT; i++) {
+      // Smaller spacing between LEDs to see the scroll effect better
+      int hue = (wheelPos + (i * 32)) % 256; // 32 instead of 256/8=32
+      uint32_t color = pixels.gamma32(pixels.ColorHSV(hue * 256));
+      
+      // Reduce brightness
+      uint8_t r = ((color >> 16) & 0xFF) * 0.3;
+      uint8_t g = ((color >> 8) & 0xFF) * 0.3;
+      uint8_t b = (color & 0xFF) * 0.3;
+      
+      pixels.setPixelColor(i, pixels.Color(r, g, b));
+    }
     
-    pixels.setPixelColor(i, pixels.Color(r, g, b));
+    pixels.show();
+    lastNeoPixelUpdate = millis();
   }
-  pixels.show();
 }
 
 void neoPixelIdleEffect() {
-  // Soft breathing blue effect with very low brightness
-  if (millis() - lastNeoPixelUpdate > 50) {
-    float breathe = (sin(millis() * 0.002) + 1.0) * 0.5; // 0.0 to 1.0
-    breathe = breathe * 0.15 + 0.05; // Scale to 0.05 to 0.2 brightness (very low)
+  // K2000-style back and forth yellow/orange effect
+  if (millis() - lastNeoPixelUpdate > 100) {
+    pixels.clear();
     
-    setAllNeoPixels(pixels.Color(0, 50, 150), breathe); // Dimmer blue color
+    // Calculate position (0 to (NEOPIXEL_COUNT-1)*2-1 for back and forth)
+    int maxPos = (NEOPIXEL_COUNT - 1) * 2;
+    int pos = neoPixelAnimationStep % maxPos;
+    
+    // Convert to actual LED position
+    int ledPos;
+    if (pos < NEOPIXEL_COUNT) {
+      ledPos = pos; // Forward direction
+    } else {
+      ledPos = maxPos - pos; // Backward direction
+    }
+    
+    // Main bright LED (yellow/orange)
+    pixels.setPixelColor(ledPos, pixels.Color(255, 150, 0)); // Orange-yellow
+    
+    // Trailing LEDs with fading effect
+    if (ledPos > 0) {
+      pixels.setPixelColor(ledPos - 1, pixels.Color(120, 60, 0)); // Dimmer trail
+    }
+    if (ledPos > 1) {
+      pixels.setPixelColor(ledPos - 2, pixels.Color(50, 25, 0)); // Very dim trail
+    }
+    
+    // Leading LEDs with fading effect  
+    if (ledPos < NEOPIXEL_COUNT - 1) {
+      pixels.setPixelColor(ledPos + 1, pixels.Color(120, 60, 0)); // Dimmer trail
+    }
+    if (ledPos < NEOPIXEL_COUNT - 2) {
+      pixels.setPixelColor(ledPos + 2, pixels.Color(50, 25, 0)); // Very dim trail
+    }
+    
+    pixels.show();
+    neoPixelAnimationStep++;
     lastNeoPixelUpdate = millis();
   }
 }
 
 void neoPixelBoxingEffect() {
-  // Pulsing red effect with low intensity
-  if (millis() - lastNeoPixelUpdate > 150) {
+  // Pulsing red effect with increasing intensity
+  if (millis() - lastNeoPixelUpdate > 100) {
     float pulse = (sin(millis() * 0.01) + 1.0) * 0.5;
-    pulse = pulse * 0.4 + 0.1; // Scale to 0.1 to 0.5 brightness (reduced)
+    pulse = pulse * 0.6 + 0.2; // Scale to 0.2 to 0.8 brightness
     
-    setAllNeoPixels(pixels.Color(150, 0, 0), pulse); // Dimmer red
+    setAllNeoPixels(pixels.Color(255, 0, 0), pulse);
     lastNeoPixelUpdate = millis();
   }
 }
 
 void neoPixelAttractEffect() {
-  // Chasing lights effect with reduced brightness
-  if (millis() - lastNeoPixelUpdate > 200) {
+  // Chasing lights effect
+  if (millis() - lastNeoPixelUpdate > 150) {
     pixels.clear();
     
     int pos = neoPixelAnimationStep % NEOPIXEL_COUNT;
-    pixels.setPixelColor(pos, pixels.Color(100, 100, 0)); // Dimmer yellow
-    pixels.setPixelColor((pos + 1) % NEOPIXEL_COUNT, pixels.Color(50, 50, 0)); // Even dimmer yellow
+    pixels.setPixelColor(pos, pixels.Color(255, 255, 0)); // Yellow
+    pixels.setPixelColor((pos + 1) % NEOPIXEL_COUNT, pixels.Color(100, 100, 0)); // Dim yellow
     
     pixels.show();
     neoPixelAnimationStep++;
@@ -352,23 +387,23 @@ void neoPixelAttractEffect() {
 }
 
 void neoPixelResultEffect(int score) {
-  // Color based on score performance with reduced brightness
+  // Color based on score performance
   uint32_t color;
   if (score >= 800) {
-    color = pixels.Color(150, 0, 150); // Dimmer magenta for excellent
+    color = pixels.Color(255, 0, 255); // Magenta for excellent
   } else if (score >= 600) {
-    color = pixels.Color(0, 150, 0); // Dimmer green for good
+    color = pixels.Color(0, 255, 0); // Green for good
   } else if (score >= 300) {
-    color = pixels.Color(150, 150, 0); // Dimmer yellow for okay
+    color = pixels.Color(255, 255, 0); // Yellow for okay
   } else {
-    color = pixels.Color(150, 50, 0); // Dimmer orange for weak
+    color = pixels.Color(255, 100, 0); // Orange for weak
   }
   
-  // Flash effect with reduced brightness
+  // Flash effect
   if (millis() - lastNeoPixelUpdate > 500) {
     static bool flashOn = false;
     if (flashOn) {
-      setAllNeoPixels(color, 0.6); // Reduced flash intensity
+      setAllNeoPixels(color, GLOBAL_BRIGHTNESS);
     } else {
       clearNeoPixels();
     }
@@ -378,22 +413,12 @@ void neoPixelResultEffect(int score) {
 }
 
 void neoPixelHighscoreEffect() {
-  // Rainbow celebration effect with reduced brightness
-  if (millis() - lastNeoPixelUpdate > 100) {
+  // Rainbow celebration effect
+  if (millis() - lastNeoPixelUpdate > 80) {
     for(int i = 0; i < NEOPIXEL_COUNT; i++) {
-      int pixelHue = ((millis() / 20 + (i * 256 / NEOPIXEL_COUNT)) % 256);
+      int pixelHue = ((millis() / 10 + (i * 256 / NEOPIXEL_COUNT)) % 256);
       uint32_t color = pixels.gamma32(pixels.ColorHSV(pixelHue * 256));
-      
-      // Reduce RGB values to limit current draw
-      uint8_t r = (color >> 16) & 0xFF;
-      uint8_t g = (color >> 8) & 0xFF;
-      uint8_t b = color & 0xFF;
-      
-      r = r * 0.4; // Reduce to 40% brightness
-      g = g * 0.4;
-      b = b * 0.4;
-      
-      pixels.setPixelColor(i, pixels.Color(r, g, b));
+      pixels.setPixelColor(i, color);
     }
     pixels.show();
     lastNeoPixelUpdate = millis();
@@ -401,7 +426,7 @@ void neoPixelHighscoreEffect() {
 }
 
 void neoPixelVolumeEffect(int volumeLevel) {
-  // Volume bar visualization with reduced brightness
+  // Volume bar visualization
   pixels.clear();
   
   int maxVolume = VOLUME_LEVELS[NUM_VOLUME_LEVELS - 1];
@@ -410,19 +435,19 @@ void neoPixelVolumeEffect(int volumeLevel) {
   for(int i = 0; i < ledCount; i++) {
     uint32_t color;
     if (i < NEOPIXEL_COUNT / 3) {
-      color = pixels.Color(0, 100, 0); // Dimmer green for low volume
+      color = pixels.Color(0, 255, 0); // Green for low volume
     } else if (i < (NEOPIXEL_COUNT * 2) / 3) {
-      color = pixels.Color(100, 100, 0); // Dimmer yellow for medium volume
+      color = pixels.Color(255, 255, 0); // Yellow for medium volume
     } else {
-      color = pixels.Color(100, 0, 0); // Dimmer red for high volume
+      color = pixels.Color(255, 0, 0); // Red for high volume
     }
     pixels.setPixelColor(i, color);
   }
   
   if (volumeLevel == 0) {
-    // Blink red for mute with very low brightness
+    // Blink red for mute
     if ((millis() / 500) % 2) {
-      setAllNeoPixels(pixels.Color(80, 0, 0), 0.3); // Very dim red
+      setAllNeoPixels(pixels.Color(255, 0, 0), GLOBAL_BRIGHTNESS);
     }
   }
   
@@ -430,11 +455,11 @@ void neoPixelVolumeEffect(int volumeLevel) {
 }
 
 void neoPixelLowBatteryEffect() {
-  // Urgent red flashing with reduced brightness
-  if (millis() - lastNeoPixelUpdate > 300) {
+  // Urgent red flashing
+  if (millis() - lastNeoPixelUpdate > 250) {
     static bool flashOn = false;
     if (flashOn) {
-      setAllNeoPixels(pixels.Color(120, 0, 0), 0.5); // Dimmer red flash
+      setAllNeoPixels(pixels.Color(255, 0, 0), GLOBAL_BRIGHTNESS);
     } else {
       clearNeoPixels();
     }
@@ -444,13 +469,13 @@ void neoPixelLowBatteryEffect() {
 }
 
 void neoPixelPunchImpactEffect() {
-  // Quick flash effect with reduced brightness to protect ESP32
-  setAllNeoPixels(pixels.Color(100, 100, 100), 0.8); // Dimmer white flash
-  delay(50);
+  // Explosive white flash effect when punch detected
+  setAllNeoPixels(pixels.Color(255, 255, 255), GLOBAL_BRIGHTNESS);
+  delay(100);
   clearNeoPixels();
-  delay(30);
-  setAllNeoPixels(pixels.Color(100, 100, 100), 0.4); // Even dimmer second flash
   delay(50);
+  setAllNeoPixels(pixels.Color(255, 255, 255), GLOBAL_BRIGHTNESS);
+  delay(100);
   clearNeoPixels();
 }
 
@@ -464,7 +489,7 @@ void updateNeoPixelEffects() {
       if (showResetMessage) {
         // Special effect for reset message
         if ((millis() / 200) % 2) {
-          setAllNeoPixels(pixels.Color(255, 0, 0), 0.5);
+          setAllNeoPixels(pixels.Color(255, 0, 0), GLOBAL_BRIGHTNESS);
         } else {
           clearNeoPixels();
         }
@@ -479,7 +504,13 @@ void updateNeoPixelEffects() {
       break;
       
     case STATE_BOXING:
-      neoPixelBoxingEffect();
+        if (waitingForPunch) {
+    // Éteindre les NeoPixels pendant l'attente du punch
+    clearNeoPixels();
+  } else {
+    // Réactiver les effets une fois le punch détecté
+    neoPixelBoxingEffect();
+  }
       break;
       
     case STATE_RESULT:
@@ -1507,9 +1538,11 @@ void checkIdleMusic() {
   // Skip music check if volume is muted
   if (currentVolume == 0) {
     idleMusicLooping = false; // Stop tracking idle music when muted
+    countdownMusicLooping = false; // Stop tracking countdown music when muted
     return;
   }
   
+  // Check idle music loop
   if (idleMusicLooping && currentState == STATE_IDLE) {
     unsigned long currentTime = millis();
     if (currentTime - lastMusicCheck >= MUSIC_CHECK_INTERVAL) {
@@ -1520,27 +1553,45 @@ void checkIdleMusic() {
       lastMusicCheck = currentTime;
     }
   }
+  
+  // Check countdown music loop
+  if (countdownMusicLooping && currentState == STATE_RESULT && resultPhase == 2) {
+    unsigned long currentTime = millis();
+    if (currentTime - lastMusicCheck >= MUSIC_CHECK_INTERVAL) {
+      if (!myDFPlayer.available()) {
+        myDFPlayer.play(10);
+        Serial.println("Restarting countdown music loop");
+      }
+      lastMusicCheck = currentTime;
+    }
+  }
 }
 
 int calculateScore(int fsrValue) {
-  int score;
+  int baseScore;
 
   if (fsrValue >= 3900) {
-    score = 0;
+    baseScore = 0;
   } else if (fsrValue >= 3000) {
-    score = map(fsrValue, 3900, 3000, 0, 100);
+    baseScore = map(fsrValue, 3900, 3000, 0, 100);
   } else if (fsrValue >= 2000) {
-    score = map(fsrValue, 3000, 2000, 100, 300);
+    baseScore = map(fsrValue, 3000, 2000, 100, 300);
   } else if (fsrValue >= 1000) {
-    score = map(fsrValue, 2000, 1000, 300, 600);
+    baseScore = map(fsrValue, 2000, 1000, 300, 600);
   } else if (fsrValue >= 500) {
-    score = map(fsrValue, 1000, 500, 600, 850);
+    baseScore = map(fsrValue, 1000, 500, 600, 850);
   } else {
-    score = map(fsrValue, 500, 150, 850, 999);
-    score = constrain(score, 850, 999);
+    baseScore = map(fsrValue, 500, 150, 850, 999);
+    baseScore = constrain(baseScore, 850, 999);
   }
 
-  return constrain(score, 0, 999);
+  // Apply calibration factor and ensure score stays within valid range
+  int calibratedScore = (int)(baseScore * scoreCalibration);
+  
+  Serial.printf("FSR: %d -> Base: %d -> Calibrated: %d (factor: %.2f)\n", 
+                fsrValue, baseScore, calibratedScore, scoreCalibration);
+  
+  return constrain(calibratedScore, 0, 999);
 }
 
 void animateScoreCount(int targetScore) {
@@ -1582,6 +1633,13 @@ void animateScoreCount(int targetScore) {
 
     int displayScore = (int)currentScore;
 
+    // Red flashing NeoPixels during score counting
+    if ((millis() / 100) % 2) { // Flash every 100ms
+      setAllNeoPixels(pixels.Color(255, 0, 0), GLOBAL_BRIGHTNESS); // Bright red flash
+    } else {
+      clearNeoPixels();
+    }
+
     if (displayScore != lastDisplayedScore) {
       int textWidth = String(targetScore).length() * 6 * 8;
       int x = (display_width - textWidth) / 2;
@@ -1611,7 +1669,8 @@ void animateScoreCount(int targetScore) {
     }
   }
 
-  for (int flash = 0; flash < 5; flash++) {
+  // Final flashing sequence - faster red flashing
+  for (int flash = 0; flash < 10; flash++) { // More flashes
     gfx->fillScreen(RGB565_BLACK);
     displayHighScore(5, 5, 2);
 
@@ -1619,8 +1678,10 @@ void animateScoreCount(int targetScore) {
 
     if (flash % 2 == 0) {
       gfx->setTextColor(RGB565_WHITE);
+      setAllNeoPixels(pixels.Color(255, 0, 0), GLOBAL_BRIGHTNESS); // Bright red
     } else {
       gfx->setTextColor(RGB565_RED);
+      clearNeoPixels(); // Off
     }
 
     String scoreText = String(targetScore);
@@ -1630,7 +1691,7 @@ void animateScoreCount(int targetScore) {
 
     gfx->setCursor(x, y);
     gfx->printf("%d", targetScore);
-    delay(300);
+    delay(150); // Fast flashing
   }
 
   gfx->fillScreen(RGB565_BLACK);
@@ -1646,7 +1707,11 @@ void animateScoreCount(int targetScore) {
   gfx->setCursor(finalX, finalY);
   gfx->printf("%d", targetScore);
 
-  delay(2000);
+  // Final NeoPixel effect - solid red for 1 second then off
+  setAllNeoPixels(pixels.Color(255, 0, 0), GLOBAL_BRIGHTNESS);
+  delay(1000);
+  clearNeoPixels();
+  delay(1000);
 
   Serial.println("Score animation completed - only used 009.mp3");
 }
@@ -1657,16 +1722,25 @@ void animateScoreCount(int targetScore) {
 
 void setup() {
   Serial.begin(115200);
+  if (!myDFPlayer.begin(FPSerial, true, true)) {
+    Serial.println(F("Unable to begin:"));
+    Serial.println(F("1.Please recheck the connection!"));
+    Serial.println(F("2.Please insert the SD card!"));
+    //while (true) delay(0);
+  }
+  Serial.println(F("DFPlayer Mini online."));
 
+
+  myDFPlayer.volume(1);
   pinMode(15, OUTPUT);
   digitalWrite(15, HIGH);
 
-  // Initialize NeoPixels with low brightness for ESP32 current safety
+  // Initialize NeoPixels with medium brightness
   pixels.begin();
   pixels.clear();
   pixels.show();
-  pixels.setBrightness(30); // Low brightness to protect ESP32 (30/255 = ~12%)
-  Serial.println("NeoPixel initialized with low brightness for current safety");
+  pixels.setBrightness(128); // 50% brightness (128/255)
+  Serial.println("NeoPixel initialized with 50% brightness");
 
   batteryCheckTimer = millis();
   updateBatteryStatus();
@@ -1697,15 +1771,7 @@ void setup() {
   Serial.println(F("DFRobot DFPlayer Mini Demo"));
   Serial.println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
 
-  if (!myDFPlayer.begin(FPSerial, true, true)) {
-    Serial.println(F("Unable to begin:"));
-    Serial.println(F("1.Please recheck the connection!"));
-    Serial.println(F("2.Please insert the SD card!"));
-    while (true) delay(0);
-  }
-  Serial.println(F("DFPlayer Mini online."));
 
-  myDFPlayer.volume(1);
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(EXTERNAL_BUTTON_PIN, INPUT_PULLUP);
@@ -1728,6 +1794,7 @@ void loop() {
   checkIdleMusic();
   updateNeoPixelEffects(); // Update NeoPixel effects every loop
 
+  /*
   if (lowBatteryWarning && currentState != STATE_LOW_BATTERY_WARNING && currentState != STATE_CRITICAL_BATTERY_SHUTDOWN) {
     static GameState previousState = currentState;
     previousState = currentState;
@@ -1735,6 +1802,7 @@ void loop() {
     lowBatteryWarningTimer = currentTime;
     Serial.println("Entering low battery warning state");
   }
+*/
 
   switch (currentState) {
     case STATE_BOOT:
@@ -2128,55 +2196,61 @@ void loop() {
       }
       break;
 
-    case STATE_BOXING:
-      {
-        static int continuousMinFSR = 4096;
-        static unsigned long lastResetTime = 0;
-        static bool punchInProgress = false;
-        static unsigned long punchDetectedTime = 0;
+ case STATE_BOXING:
+{
+  static int continuousMinFSR = 4096;
+  static unsigned long lastResetTime = 0;
+  static bool punchInProgress = false;
+  static unsigned long punchDetectedTime = 0;
 
-        if (waitingForPunch) {
-          playLoopingGif("/fight.gif");
+  if (waitingForPunch) {
+    playLoopingGif("/fight.gif");
 
-          int currentFSRReading = analogRead(FSR_PIN);
+    // Show pulsing red effect while waiting for punch
+    if (!punchInProgress) {
+      neoPixelBoxingEffect();
+    }
 
-          if (millis() - lastResetTime > 2000 && !punchInProgress) {
-            continuousMinFSR = 4096;
-            lastResetTime = millis();
-          }
+    int currentFSRReading = analogRead(FSR_PIN);
 
-          if (currentFSRReading < continuousMinFSR) {
-            continuousMinFSR = currentFSRReading;
+    if (millis() - lastResetTime > 2000 && !punchInProgress) {
+      continuousMinFSR = 4096;
+      lastResetTime = millis();
+    }
 
-            if (currentFSRReading < 3800 && !punchInProgress) {
-              Serial.printf("PUNCH START detected! Initial FSR: %d\n", currentFSRReading);
-              punchInProgress = true;
-              punchDetectedTime = millis();
-              
-              // Trigger punch impact effect
-              neoPixelPunchImpactEffect();
-            }
-          }
+    if (currentFSRReading < continuousMinFSR) {
+      continuousMinFSR = currentFSRReading;
 
-          if (punchInProgress) {
-            unsigned long punchDuration = millis() - punchDetectedTime;
-
-            if (punchDuration >= 500) {
-              Serial.printf("PUNCH COMPLETE! Absolute minimum FSR captured: %d\n", continuousMinFSR);
-
-              currentScore = calculateScore(continuousMinFSR);
-              Serial.printf("Final Score: %d (from FSR: %d)\n", currentScore, continuousMinFSR);
-
-              waitingForPunch = false;
-              punchInProgress = false;
-              continuousMinFSR = 4096;
-              resetLoopingGif();
-              currentState = STATE_RESULT;
-            }
-          }
-        }
+      if (currentFSRReading < 3800 && !punchInProgress) {
+        Serial.printf("PUNCH START detected! Initial FSR: %d\n", currentFSRReading);
+        punchInProgress = true;
+        punchDetectedTime = millis();
+        // Flash blanc will trigger AFTER sampling is complete
       }
-      break;
+    }
+
+    if (punchInProgress) {
+      unsigned long punchDuration = millis() - punchDetectedTime;
+
+      if (punchDuration >= 500) {
+        Serial.printf("PUNCH COMPLETE! Absolute minimum FSR captured: %d\n", continuousMinFSR);
+
+        // White flash effect AFTER FSR sampling is complete
+        neoPixelPunchImpactEffect();
+
+        currentScore = calculateScore(continuousMinFSR);
+        Serial.printf("Final Score: %d (from FSR: %d)\n", currentScore, continuousMinFSR);
+
+        waitingForPunch = false;
+        punchInProgress = false;
+        continuousMinFSR = 4096;
+        resetLoopingGif();
+        currentState = STATE_RESULT;
+      }
+    }
+  }
+}
+break;
 
     case STATE_RESULT:
       {
@@ -2213,11 +2287,24 @@ void loop() {
         } else if (resultPhase == 2) {
           static bool timerInitialized = false;
           static bool continueTextDisplayed = false;
+          static bool countdownMusicStarted = false;
 
           if (!timerInitialized) {
             continueTimer = millis();
             timerInitialized = true;
             continueTextDisplayed = false;
+            countdownMusicStarted = false;
+          }
+          
+          // Start countdown music on first entry to this phase
+          if (!countdownMusicStarted) {
+            if (currentVolume > 0) {
+              myDFPlayer.play(10);
+              countdownMusicLooping = true;
+              lastMusicCheck = millis();
+              Serial.println("Starting countdown music loop (010.mp3)");
+            }
+            countdownMusicStarted = true;
           }
 
           unsigned long elapsed = millis() - continueTimer;
@@ -2260,6 +2347,9 @@ void loop() {
           if (elapsed >= CONTINUE_TIMEOUT) {
             Serial.println("Continue timeout reached, returning to idle state");
 
+            // Stop countdown music and reset flags
+            countdownMusicLooping = false;
+            
             waitingForPunch = true;
             resultPhase = 0;
             timerInitialized = false;
@@ -2280,6 +2370,9 @@ void loop() {
           if (anyButtonPressed() && !buttonPressed && !externalButtonPressed) {
             buttonPressed = true;
             externalButtonPressed = true;
+
+            // Stop countdown music when starting new game
+            countdownMusicLooping = false;
 
             waitingForPunch = true;
             resultPhase = 0;
