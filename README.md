@@ -53,6 +53,20 @@ Display Power:     GPIO 15
 
 Follow the pin configuration above to connect all components. The circuit shows the complete wiring setup for the T-Display S3, DFPlayer Mini, FSR sensor, and NeoPixel stick.
 
+## 🖨️ 3D Printed Parts
+
+The game includes a custom 3D printed enclosure and mounting system. All STL files and printing instructions are available on MakerWorld:
+
+**[Download 3D Files on MakerWorld](https://makerworld.com/your-project-link)**
+
+The 3D printed parts include:
+- Main enclosure for T-Display S3
+- Mounting bracket for FSR sensor
+- NeoPixel stick holder
+- Battery compartment
+
+> 💡 **Printing Tips**: Use PLA+ filament for best results. No supports needed for most parts.
+
 ## 🛠️ Installation
 
 ### Prerequisites

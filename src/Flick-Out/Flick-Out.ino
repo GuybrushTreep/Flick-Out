@@ -372,13 +372,24 @@ void neoPixelBoxingEffect() {
 }
 
 void neoPixelAttractEffect() {
-  // Chasing lights effect
-  if (millis() - lastNeoPixelUpdate > 150) {
+  // K2000-style back and forth RED effect - 2x faster with NO trails
+  if (millis() - lastNeoPixelUpdate > 50) { // 50ms instead of 100ms = 2x faster
     pixels.clear();
     
-    int pos = neoPixelAnimationStep % NEOPIXEL_COUNT;
-    pixels.setPixelColor(pos, pixels.Color(255, 255, 0)); // Yellow
-    pixels.setPixelColor((pos + 1) % NEOPIXEL_COUNT, pixels.Color(100, 100, 0)); // Dim yellow
+    // Calculate position (0 to (NEOPIXEL_COUNT-1)*2-1 for back and forth)
+    int maxPos = (NEOPIXEL_COUNT - 1) * 2;
+    int pos = neoPixelAnimationStep % maxPos;
+    
+    // Convert to actual LED position
+    int ledPos;
+    if (pos < NEOPIXEL_COUNT) {
+      ledPos = pos; // Forward direction
+    } else {
+      ledPos = maxPos - pos; // Backward direction
+    }
+    
+    // Only the main bright LED (no trails)
+    pixels.setPixelColor(ledPos, pixels.Color(255, 0, 0)); // Bright red
     
     pixels.show();
     neoPixelAnimationStep++;
@@ -1794,7 +1805,7 @@ void loop() {
   checkIdleMusic();
   updateNeoPixelEffects(); // Update NeoPixel effects every loop
 
-  /*
+  
   if (lowBatteryWarning && currentState != STATE_LOW_BATTERY_WARNING && currentState != STATE_CRITICAL_BATTERY_SHUTDOWN) {
     static GameState previousState = currentState;
     previousState = currentState;
@@ -1802,7 +1813,6 @@ void loop() {
     lowBatteryWarningTimer = currentTime;
     Serial.println("Entering low battery warning state");
   }
-*/
 
   switch (currentState) {
     case STATE_BOOT:
