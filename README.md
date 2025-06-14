@@ -59,13 +59,8 @@ The game includes a custom 3D printed enclosure and mounting system. All STL fil
 
 **[Download 3D Files on MakerWorld](https://makerworld.com/your-project-link)**
 
-The 3D printed parts include:
-- Main enclosure for T-Display S3
-- Mounting bracket for FSR sensor
-- NeoPixel stick holder
-- Battery compartment
 
-> 💡 **Printing Tips**: Use PLA+ filament for best results. No supports needed for most parts.
+
 
 ## 🛠️ Installation
 
