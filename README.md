@@ -6,6 +6,9 @@
 
 [![Flick-Out Game](images/Render_01.jpg)](images/Render_01.jpg)
 
+| ![Turn Animation](images/Turn.gif) | ![Ball Animation](images/Ball.gif) | ![Flick Animation](images/Flick.gif) |
+|:---:|:---:|:---:|
+
 [![Watch the demo](https://img.youtube.com/vi/mopjpVoV8_0/maxresdefault.jpg)](https://www.youtube.com/watch?v=mopjpVoV8_0)
 
 > A retro-style arcade punching game for the LilyGO T-Display S3, featuring animated GIFs, sound effects, and force-sensitive gameplay.
