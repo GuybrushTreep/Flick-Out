@@ -133,7 +133,8 @@ sdcard/
 ├── 004.mp3         # Medium punch sound
 ├── 005.mp3         # Strong punch sound
 ├── 008.mp3         # New highscore victory sound
-└── 009.mp3         # Score animation sound
+├── 009.mp3         # Score animation sound
+└── 010.mp3         # Countdown music (loops during continue screen)
 ```
 
 ## 🎮 Controls
