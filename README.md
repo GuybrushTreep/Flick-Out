@@ -62,7 +62,7 @@ Follow the pin configuration above to connect all components. The circuit shows 
 
 The game includes a custom 3D printed enclosure and mounting system. All STL files and printing instructions are available on MakerWorld:
 
-**[Download 3D Files on MakerWorld](https://makerworld.com/your-project-link)**
+**[Download 3D Files on MakerWorld](https://makerworld.com/fr/models/1526232-flick-out-mini-arcade-punching-machine)**
 
 
 
