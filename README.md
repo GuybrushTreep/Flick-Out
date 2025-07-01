@@ -9,7 +9,11 @@
 | ![Turn Animation](images/Turn.gif) | ![Ball Animation](images/Ball.gif) | ![Flick Animation](images/Flick.gif) |
 |:---:|:---:|:---:|
 
+## 🎥 Demo Video
+
 [![Watch the demo](https://img.youtube.com/vi/mopjpVoV8_0/maxresdefault.jpg)](https://www.youtube.com/watch?v=mopjpVoV8_0)
+
+*Click to watch the full gameplay demonstration*
 
 > A retro-style arcade punching game for the LilyGO T-Display S3, featuring animated GIFs, sound effects, and force-sensitive gameplay.
 
@@ -62,10 +66,15 @@ Follow the pin configuration above to connect all components. The circuit shows 
 
 The game includes a custom 3D printed enclosure and mounting system. All STL files and printing instructions are available on MakerWorld:
 
-**[Download 3D Files on MakerWorld](https://makerworld.com/fr/models/1526232-flick-out-mini-arcade-punching-machine)**
+**[Download 3D Files on MakerWorld](https://makerworld.com/your-project-link)**
 
+The 3D printed parts include:
+- Main enclosure for T-Display S3
+- Mounting bracket for FSR sensor
+- NeoPixel stick holder
+- Battery compartment
 
-
+> 💡 **Printing Tips**: Use PLA+ filament for best results. No supports needed for most parts.
 
 ## 🛠️ Installation
 
@@ -198,6 +207,10 @@ The game features dynamic LED lighting that responds to different game states:
 - **Critical shutdown**: Automatic deep sleep at 3.1V to prevent damage
 - **Charging support**: Built-in LiPo charging via USB-C
 
+### 🔌 Battery Charging
+
+⚠️ **Important**: The T-Display S3 must be powered ON to charge the battery via USB-C. If the device is turned off, the charging circuit will not work at all. Simply connect a USB-C cable while the game is running to charge the LiPo battery.
+
 ## 🐛 Troubleshooting
 
 ### 🔇 No audio output
@@ -210,7 +223,6 @@ The game features dynamic LED lighting that responds to different game states:
 ### 📺 Display issues
 
 - Ensure display power pin (GPIO 15) is high
-- Check SPI connections to display
 - Verify GIF files are uploaded to LittleFS
 - Check backlight pin (GPIO 38)
 
@@ -238,7 +250,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Credits
 
-- **Hardware**: [LilyGO T-Display S3](https://github.com/Xinyuan-LilyGO/T-Display-S3)
 - **Music**: Battle Music by Dragon-Studio
 - **Development**: Guillaume Loquin (Guybrush)
 
