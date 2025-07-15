@@ -118,7 +118,7 @@ Install through Arduino IDE Library Manager:
    - Place GIF files in `data/` folder
    - Use keyboard shortcut: `[Ctrl] + [Shift] + [P]`, then "Upload LittleFS to Pico/ESP8266/ESP32"
 
-please make sure to select the Lilygo_T3_S3 as you main board to enable Spiffs partition scheme or use @chornbec solution here: https://github.com/GuybrushTreep/Flick-Out/issues/1
+⚠️ **Important**: please make sure to select the **Lilygo_T3_S3** as you main board to enable Spiffs partition scheme or use @chornbec solution here: https://github.com/GuybrushTreep/Flick-Out/issues/1
 
 5. **Prepare SD card**
    - Use microSD card 32GB or smaller (DFPlayer Mini limitation)
