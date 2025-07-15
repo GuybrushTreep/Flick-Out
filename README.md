@@ -78,6 +78,9 @@ The 3D printed parts include:
 
 ## 🛠️ Installation
 
+### Board Settings
+[![Circuit Wiring](images/BoardSettings.png)](images/BoardSettings.png)
+
 ### Prerequisites
 
 - Arduino IDE 2.x (required)
